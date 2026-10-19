@@ -1,7 +1,9 @@
 ﻿string caminho = @"C:\Users\eduar\Desktop\TranscreverProvas";
 
-IEnumerable<string> arquivos = Directory.EnumerateFiles(caminho);
-Console.WriteLine(arquivos);
+string[] extensoesPermitidas = [".pdf", ".png", ".jpeg", ".jpg", ".docx"];
+
+IEnumerable<string> arquivos = Directory.EnumerateFiles(caminho)
+    .Where(arquivo => extensoesPermitidas.Contains(Path.GetExtension(arquivo), StringComparer.OrdinalIgnoreCase));
 
 foreach (string arquivo in arquivos)
 {
