@@ -1,15 +1,11 @@
-﻿string caminho = @"C:\Users\eduar\Desktop\TranscreverProvas";
+﻿using Transcritor;
 
-string[] extensoesPermitidas = [".pdf", ".png", ".jpeg", ".jpg", ".docx"];
+string caminho = @"C:\Users\eduar\Desktop\TranscreverProvas";
 
-IEnumerable<FileInfo> arquivos = Directory.EnumerateFiles(caminho)
-    .Where(arquivo => extensoesPermitidas.Contains(Path.GetExtension(arquivo), StringComparer.OrdinalIgnoreCase))
-    .Select(caminho => new FileInfo(caminho));
+IArquivoScanner scanner = new ArquivoScanner();
+IEnumerable<DocumentoEntrada> documentos = scanner.EscanearPasta(caminho);
 
-foreach (FileInfo arquivo in arquivos)
+foreach (var documento in documentos)
 {
-    Console.WriteLine(arquivo.Name);
-
-    double tamanoEmMb = arquivo.Length / (1024.0 * 1024.0);
-    Console.WriteLine($"{tamanoEmMb:F2} MB");
+    Console.WriteLine($"{documento.Caminho}\n{documento.Nome}\n{documento.TamanhoMB:F2}\n=-=-=-=-=-=-=-=-=-=-=\n");
 }
