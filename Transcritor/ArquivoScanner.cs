@@ -6,7 +6,7 @@ namespace Transcritor
 {
     internal class ArquivoScanner : IArquivoScanner
     {
-        private static string[] extensoesPermitidas = [".pdf", ".png", ".jpeg", ".jpg", ".docx"];
+        private static string[] extensoesPermitidas = [".pdf", ".png", ".jpeg", ".jpg"];
        
         public IEnumerable<DocumentoEntrada> EscanearPasta(string caminho)
         {
