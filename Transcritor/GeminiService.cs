@@ -52,22 +52,26 @@ namespace Transcritor
 
             var payload = new
             {
-{
-                "contents": [
-                  {
-                    "parts": [
-                      { "text": ${ prompt} },
-        {
-                        "inline_data": {
-                            "mime_type": ${mimeType },
-            "data": ${ base64String}
+                contents = new[]
+                {
+                    new
+                    {
+                        parts = new object[]
+                        {
+                            new {text = prompt},
+                            new
+                            {
+                                inline_data = new
+                                {
+                                    mime_type = mimeType,
+                                    data = base64String
+                                }
+                            }
                         }
                     }
-      ]
-    }
-  ]
-}
-        }
+                }
+            };
+
         }
     }
 }
