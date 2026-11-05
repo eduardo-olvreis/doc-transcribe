@@ -67,7 +67,8 @@ foreach (var documento in documentos)
 
     foreach (var questao in questoesConsolidadas)
     {
-        sbQuestaoFormatada.AppendLine($"{numeroQuestaoGlobal}. {questao}");
+        sbQuestaoFormatada.AppendLine($"{numeroQuestaoGlobal} - {questao}");
+        sbQuestaoFormatada.AppendLine();
         sbQuestaoFormatada.AppendLine();
         numeroQuestaoGlobal++;
     }
@@ -76,4 +77,19 @@ foreach (var documento in documentos)
     await Task.Delay(2000);
 }
 
-await escritor.SalvarAsync(caminhoSaida, sb.ToString());
+string conteudoMarkdown = sb.ToString();
+conteudoMarkdown = System.Text.RegularExpressions.Regex.Replace(conteudoMarkdown, @"\s+(?=[A-Da-d]\)|\([A-Da-d]\))", "  \n");
+await escritor.SalvarAsync(caminhoSaida, conteudoMarkdown);
+
+
+string googleToken = config["GoogleDrive:AccessToken"];
+
+if (!string.IsNullOrEmpty(googleToken))
+{
+    var driveService = new GoogleDriveService(googleToken, httpClient);
+    await driveService.EnviarParaGoogleDocsAsync(caminhoSaida, "Prova Consolidada - Semiotecia");
+}
+else
+{
+    Console.WriteLine("Token do Google Drive não configurado. Pulando envio para a nuvem.");
+}
