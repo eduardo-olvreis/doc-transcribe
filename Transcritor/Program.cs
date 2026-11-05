@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using System.Text;
 using Transcritor;
 
 var config = new ConfigurationBuilder()
@@ -14,7 +15,8 @@ if (string.IsNullOrEmpty(apiKey))
     return;
 }
 
-string caminho = @"C:\Users\eduar\Desktop\TranscreverProvas";
+string caminho = @"E:\Documentos\TranscreverProvas";
+string caminhoSaida = Path.Combine(caminho, "resultado_consolidado.md");
 using var httpClient = new HttpClient();
 
 IArquivoScanner scanner = new ArquivoScanner();
@@ -22,8 +24,14 @@ IEnumerable<DocumentoEntrada> documentos = scanner.EscanearPasta(caminho);
 
 ITranscritorIA transcritor = new GeminiService(apiKey, httpClient);
 
+IEscritorDocumento escritor = new EscritorDocumento();
+
+StringBuilder sb = new StringBuilder();
+
 foreach (var documento in documentos)
 {
     string resultado = await transcritor.EnviarParaIAAsync(documento);
-    Console.WriteLine(resultado);
+    sb.AppendLine(resultado + "\n");
 }
+
+await escritor.SalvarAsync(caminhoSaida, sb.ToString());
