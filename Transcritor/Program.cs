@@ -18,6 +18,7 @@ if (string.IsNullOrEmpty(apiKey))
 string caminho = @"E:\Documentos\TranscreverProvas";
 string caminhoSaida = Path.Combine(caminho, "resultado_consolidado.md");
 using var httpClient = new HttpClient();
+httpClient.Timeout = TimeSpan.FromMinutes(5);
 
 IArquivoScanner scanner = new ArquivoScanner();
 IEnumerable<DocumentoEntrada> documentos = scanner.EscanearPasta(caminho);
@@ -30,8 +31,10 @@ StringBuilder sb = new StringBuilder();
 
 foreach (var documento in documentos)
 {
+    Console.WriteLine($"documento: {documento.Nome}");
     string resultado = await transcritor.EnviarParaIAAsync(documento);
     sb.AppendLine(resultado + "\n");
+    await Task.Delay(2000);
 }
 
 await escritor.SalvarAsync(caminhoSaida, sb.ToString());

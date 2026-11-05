@@ -38,7 +38,7 @@ namespace Transcritor
                     throw new NotSupportedException("Extensão não suportada.");
             }
 
-            string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={this.apiKey}";
+            string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={this.apiKey}";
             string prompt = """
                             Você é um assistente especialista em transcrição e digitalização de documentos acadêmicos e provas.
 
@@ -70,13 +70,41 @@ namespace Transcritor
                             }
                         }
                     }
+                },
+                generationConfig = new
+                {
+                    temperature = 0.1,
+                    maxOutputTokens = 8192
                 }
             };
 
             string json = JsonSerializer.Serialize(payload);
-            using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await this.client.PostAsync(url, content);
-            response.EnsureSuccessStatusCode();
+
+            int tentativasMaximas = 5;
+            HttpResponseMessage response = null;
+
+            for (int tentativa = 1; tentativa <= tentativasMaximas; tentativa++)
+            {
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                response = await this.client.PostAsync(url, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    break;
+                }
+
+                string errorJson = await response.Content.ReadAsStringAsync();
+                if (((int)response.StatusCode == 503 || (int)response.StatusCode == 429) && tentativa < tentativasMaximas)
+                {
+                    int tempoEspera = tentativa * 4;
+                    Console.WriteLine($"[AVISO] Servidor instável ou lotado ({response.StatusCode}). Tentativa {tentativa}/{tentativasMaximas}. Aguardando {tempoEspera}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(tempoEspera));
+                    continue;
+                }
+
+                throw new HttpRequestException($"Falha na API ({response.StatusCode}): {errorJson}");
+            }
+
             string responseBody = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(responseBody);
             var text = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? string.Empty;
