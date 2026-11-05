@@ -29,11 +29,50 @@ IEscritorDocumento escritor = new EscritorDocumento();
 
 StringBuilder sb = new StringBuilder();
 
+int numeroQuestaoGlobal = 1;
+
 foreach (var documento in documentos)
 {
-    Console.WriteLine($"documento: {documento.Nome}");
-    string resultado = await transcritor.EnviarParaIAAsync(documento);
-    sb.AppendLine(resultado + "\n");
+    Console.WriteLine($"Processando documento: {documento.Nome}");
+    string resultadoIA = await transcritor.EnviarParaIAAsync(documento);
+    var blocosBrutos = resultadoIA.Split(new[] { "\r\n\r\n", "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
+    List<string> questoesConsolidadas = new List<string>();
+    string questaoAtual = string.Empty;
+
+    foreach (var bloco in blocosBrutos)
+    {
+        string blocoTrim = bloco.Trim();
+        bool pareceAlternativa = System.Text.RegularExpressions.Regex.IsMatch(blocoTrim, @"^[a-eA-E][\)\.-]");
+
+        if (pareceAlternativa && !string.IsNullOrEmpty(questaoAtual))
+        {
+            questaoAtual += "\n\n" + blocoTrim;
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(questaoAtual))
+            {
+                questoesConsolidadas.Add(questaoAtual);
+            }
+            questaoAtual = blocoTrim;
+        }
+    }
+
+    if (!string.IsNullOrEmpty(questaoAtual))
+    {
+        questoesConsolidadas.Add(questaoAtual);
+    }
+
+    StringBuilder sbQuestaoFormatada = new StringBuilder();
+
+    foreach (var questao in questoesConsolidadas)
+    {
+        sbQuestaoFormatada.AppendLine($"{numeroQuestaoGlobal}. {questao}");
+        sbQuestaoFormatada.AppendLine();
+        numeroQuestaoGlobal++;
+    }
+
+    sb.AppendLine(sbQuestaoFormatada.ToString());
     await Task.Delay(2000);
 }
 
