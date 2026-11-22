@@ -43,6 +43,8 @@ ITranscritorIA transcritor = new GeminiService(apiKey, httpClient);
 
 IEscritorDocumento escritor = new EscritorDocumento();
 
+IParserQuestoes parser = new ParserQuestoes();
+
 StringBuilder sb = new StringBuilder();
 
 int numeroQuestaoGlobal = 1;
@@ -51,35 +53,9 @@ foreach (var documento in documentos)
 {
     Console.WriteLine($"Processando documento: {documento.Nome}");
     string resultadoIA = await transcritor.EnviarParaIAAsync(documento);
-    var blocosBrutos = resultadoIA.Split(new[] { "\r\n\r\n", "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
-    List<string> questoesConsolidadas = new List<string>();
-    string questaoAtual = string.Empty;
-
-    foreach (var bloco in blocosBrutos)
-    {
-        string blocoTrim = bloco.Trim();
-        bool pareceAlternativa = System.Text.RegularExpressions.Regex.IsMatch(blocoTrim, @"^[a-eA-E][\)\.-]");
-
-        if (pareceAlternativa && !string.IsNullOrEmpty(questaoAtual))
-        {
-            questaoAtual += "\n\n" + blocoTrim;
-        }
-        else
-        {
-            if (!string.IsNullOrEmpty(questaoAtual))
-            {
-                questoesConsolidadas.Add(questaoAtual);
-            }
-            questaoAtual = blocoTrim;
-        }
-    }
-
-    if (!string.IsNullOrEmpty(questaoAtual))
-    {
-        questoesConsolidadas.Add(questaoAtual);
-    }
 
     StringBuilder sbQuestaoFormatada = new StringBuilder();
+    var questoesConsolidadas = parser.Extrair(resultadoIA);
 
     foreach (var questao in questoesConsolidadas)
     {
@@ -94,7 +70,6 @@ foreach (var documento in documentos)
 }
 
 string conteudoMarkdown = sb.ToString();
-conteudoMarkdown = System.Text.RegularExpressions.Regex.Replace(conteudoMarkdown, @"\s+(?=[A-Da-d]\)|\([A-Da-d]\))", "  \n");
 await escritor.SalvarAsync(caminhoSaida, conteudoMarkdown);
 
 
