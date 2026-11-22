@@ -42,7 +42,7 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 
 ## Estado
 - Desenvolvimento em passos pequenos. Um passo validado e commitado por vez. Não avançar sem aprovação do usuário.
-- Não há testes automatizados.
+- Testes: `Transcritor.Tests` (xUnit, só `ParserQuestoes`). Rodar: `dotnet test Transcritor.slnx`.
 
 ## Roadmap de melhorias (uma por vez, commit por melhoria)
 Feitas:
@@ -51,7 +51,7 @@ Feitas:
 4. ✅ Parser de questões (`ParserQuestoes`): `a.`, `A)`, `E`, associação de colunas. Testado com Gemini real (3 imagens → 8 questões certas).
 
 Próximas, na ordem sugerida:
-- 4b. ⏳ Marcar questão cortada e arquivo de origem. Parser devolve questão + nome do arquivo. Marcador de imagem vira `[IMAGEM — arquivo.jpg]`. Questão cortada: pedir no prompt do Gemini `**[QUESTÃO CORTADA]**` (início ou fim da página) e trocar por `[QUESTÃO CORTADA — arquivo.jpg]`; somar heurística (questão que começa direto em alternativa, como a nº 1 do teste). Mudar o prompt exige retestar com imagens reais.
+- 4b. ✅ Testado com Gemini real e Drive. Marcar questão cortada e arquivo de origem. Parser devolve questão + nome do arquivo. Marcador de imagem vira `[IMAGEM — arquivo.jpg]`. Questão cortada: pedir no prompt do Gemini `**[QUESTÃO CORTADA]**` (início ou fim da página) e trocar por `[QUESTÃO CORTADA — arquivo.jpg]`; somar heurística (questão que começa direto em alternativa, como a nº 1 do teste). Mudar o prompt exige retestar com imagens reais.
 - 3. ⏳ Resiliência: `try/catch` por arquivo em `Program.cs`; salvar `.md` parcial e listar arquivos que falharam.
 - 7. ⏳ Ler `appsettings*.json` de `AppContext.BaseDirectory` (hoje usa `Directory.GetCurrentDirectory()`; só roda de dentro da pasta do projeto, senão `FileNotFoundException`).
 - 5. ⏳ Drive com OAuth e refresh do token (hoje token do OAuth Playground dura ~1h; erro 401 = expirou).
@@ -63,5 +63,4 @@ Melhorias menores / dívida técnica (sem ordem):
 - `Task.Delay(2000)` e `maxOutputTokens = 8192` fixos no código; mover para config.
 - Arquivos acima de ~20MB não cabem em `inline_data` do Gemini; avisar ou usar a File API.
 - `GoogleDriveService`: não descarta a resposta (`Dispose`) e não renova token (ver item 5).
-- Não há testes automatizados. Avaliar projeto de testes para `ParserQuestoes` (cobre os casos do teste real).
 - Prompt do Gemini diz "sem numeração"; se a IA numerar mesmo assim, o parser trata `1.`/`1)` como item da questão anterior, não como questão nova.

@@ -10,7 +10,7 @@ namespace Transcritor
         private static partial Regex InicioAlternativa();
 
         // Item de enumeração/associação: "1)", "1.", "( )" ou marcador de imagem.
-        [GeneratedRegex(@"^(\d{1,2}[\)\.]\s|\(\s*\)|\[ESTA QUESTÃO CONTÉM UMA IMAGEM\])", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"^(\d{1,2}[\)\.]\s|\(\s*\)|\[IMAGEM —)", RegexOptions.IgnoreCase)]
         private static partial Regex InicioItem();
 
         // Bloco que complementa uma questão de associar colunas ("Resposta correta:", "Assinale a alternativa...").
@@ -30,8 +30,22 @@ namespace Transcritor
         [GeneratedRegex(@"\s(\([bB]\)|[bB]\)|[bB][\.\-])\s")]
         private static partial Regex TemSegundaAlternativa();
 
-        public IReadOnlyList<string> Extrair(string textoIA)
+        // Marcador de imagem da IA, com ou sem negrito.
+        [GeneratedRegex(@"\*{0,2}\[ESTA QUESTÃO CONTÉM UMA IMAGEM\]\*{0,2}", RegexOptions.IgnoreCase)]
+        private static partial Regex MarcadorImagemIA();
+
+        // Marcador de questão cortada da IA, com ou sem negrito.
+        [GeneratedRegex(@"\*{0,2}\[QUESTÃO CORTADA\]\*{0,2}", RegexOptions.IgnoreCase)]
+        private static partial Regex MarcadorCortadaIA();
+
+        public IReadOnlyList<string> Extrair(string textoIA, string nomeArquivo)
         {
+            string marcadorCortada = $"[QUESTÃO CORTADA — {nomeArquivo}]";
+
+            // Troca os marcadores da IA pelos finais, já com o arquivo de origem.
+            textoIA = MarcadorImagemIA().Replace(textoIA, $"[IMAGEM — {nomeArquivo}]");
+            textoIA = MarcadorCortadaIA().Replace(textoIA, marcadorCortada);
+
             var blocos = LinhaEmBranco()
                 .Split(textoIA.Replace("\r\n", "\n"))
                 .Select(b => b.Trim())
@@ -52,7 +66,11 @@ namespace Transcritor
                 {
                     questoes.Add(Formatar(blocosAtuais));
                 }
-                blocosAtuais = [bloco];
+
+                // Heurística: questão que começa direto em alternativa veio cortada do arquivo anterior.
+                blocosAtuais = InicioAlternativa().IsMatch(bloco) && !bloco.Contains("[QUESTÃO CORTADA")
+                    ? [marcadorCortada, bloco]
+                    : [bloco];
             }
 
             if (blocosAtuais.Count > 0)

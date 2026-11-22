@@ -55,7 +55,7 @@ foreach (var documento in documentos)
     string resultadoIA = await transcritor.EnviarParaIAAsync(documento);
 
     StringBuilder sbQuestaoFormatada = new StringBuilder();
-    var questoesConsolidadas = parser.Extrair(resultadoIA);
+    var questoesConsolidadas = parser.Extrair(resultadoIA, documento.Nome);
 
     foreach (var questao in questoesConsolidadas)
     {

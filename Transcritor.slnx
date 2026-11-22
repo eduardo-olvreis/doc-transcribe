@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="Transcritor.Tests/Transcritor.Tests.csproj" />
   <Project Path="Transcritor/Transcritor.csproj" />
 </Solution>

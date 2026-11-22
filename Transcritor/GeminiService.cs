@@ -47,6 +47,7 @@ namespace Transcritor
                             1. CONTEÚDO PERMITIDO: Transcreva APENAS os enunciados das questões e suas respectivas alternativas (A, B, C, D, E).
                             2. OMITA DADOS PESSOAIS E RASURAS: Ignore completamente anotações feitas à mão, respostas marcadas/assinaladas, nomes de alunos, cabeçalhos de instituição, rasuras, gabaritos rabiscados ou qualquer elemento escrito manualmente.
                             3. CONTEÚDO VISUAL/IMAGENS: Se uma questão contiver uma imagem, gráfico, diagrama ou figura necessária para a resolução, transcreva o texto do enunciado e adicione a seguinte marcação em uma nova linha no local da imagem: **[ESTA QUESTÃO CONTÉM UMA IMAGEM]**.
+                            3.1. QUESTÃO CORTADA: Se uma questão estiver cortada pela borda da página (começa sem enunciado completo, ou termina sem todas as alternativas), adicione a marcação **[QUESTÃO CORTADA]** em uma linha própria, colada à questão (SEM linha em branco entre a marcação e o texto): na primeira linha se faltar o início, na última linha se faltar o fim.
                             4. SEM NUMERAÇÃO: Não adicione números no início dos enunciados (ex: não escreva "1.", "Questão 1"). Apenas extraia o texto dos enunciados e alternativas separados por uma linha em branco.
                             5. FORMATO DE SAÍDA: Retorne apenas o texto transcrito em Markdown limpo, sem introduções, saudações ou explicações antes ou depois.
                             """;
