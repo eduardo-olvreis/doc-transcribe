@@ -1,44 +1,47 @@
 # Transcritor
 
-App console .NET 10 que transcreve provas. Usuário joga arquivos numa pasta; o app gera um MD único e cria um Google Docs formatado no Drive.
+App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.slnx`). Lê provas (PDF e imagens) de uma pasta, transcreve com a API do Gemini e gera um Markdown consolidado. Depois envia o MD ao Google Drive, convertido em Google Docs.
 
-## Fluxo (MVP)
-1. `ArquivoScanner.EscanearPasta` lista `.pdf .png .jpg .jpeg .txt .docx` (ordem por nome).
-2. `.txt` e `.docx`: texto extraído localmente (`ExtratorTextoLocal`), sem IA.
-3. `.pdf` e imagens: `GeminiService` envia o arquivo (base64) e recebe a transcrição em Markdown.
-4. Todas as transcrições viram `transcricao_yyyyMMdd_HHmmss.md` na própria pasta, separadas por `---`, cada uma com `## nome do arquivo`.
-5. `GoogleDocsService` converte o MD em HTML (Markdig) e faz upload ao Drive como `application/vnd.google-apps.document`. Imprime a URL.
+## Fluxo atual (`Program.cs`)
+1. Lê `Gemini:ApiKey` de `appsettings.json` + `appsettings.Development.json`. Sem chave, encerra.
+2. Pasta fixa no código: `E:\Documentos\TranscreverProvas`.
+3. `ArquivoScanner.EscanearPasta` lista `.pdf .png .jpg .jpeg`. Não lê `.txt` nem `.docx`.
+4. Para cada arquivo: `GeminiService.EnviarParaIAAsync` (modelo `gemini-3.1-flash-lite`, temperature 0.1, até 5 tentativas em 429/503 com espera crescente).
+5. Resposta dividida em blocos por linha em branco. Bloco que começa com `a)`–`e)` (ou `A.`–`E.`) é agrupado à questão anterior.
+6. Numeração global sequencial (`1 - `, `2 - `...) entre todos os arquivos.
+7. Espera 2s entre arquivos.
+8. Grava `resultado_consolidado.md` em `E:\Documentos\TranscreverProvas`. Regex adiciona duas espaços antes de alternativas.
+9. Se `GoogleDrive:AccessToken` existir, `GoogleDriveService` envia o MD por multipart ao Drive com `mimeType = application/vnd.google-apps.document`. Sem token, pula esta etapa.
 
 ## Arquivos
-- `Program.cs`: orquestra o fluxo. Pasta vem do 1º argumento ou do caminho padrão.
+- `Program.cs`: orquestração inteira (config, loop, numeração, escrita, envio).
 - `ArquivoScanner.cs` / `IArquivoScanner.cs`: descoberta de arquivos.
-- `DocumentoEntrada.cs`: DTO do arquivo.
-- `ITranscritorIA.cs` / `GeminiService.cs`: transcrição por IA. Modelo em `Modelo`.
-- `ExtratorTextoLocal.cs`: `.txt` e `.docx` sem IA.
-- `GoogleDocsService.cs`: OAuth desktop + Drive API, escopo `drive.file`.
+- `DocumentoEntrada.cs`: DTO (`Caminho`, `Nome`, `Extensao`, `TamanhoMB`).
+- `ITranscritorIA.cs` / `GeminiService.cs`: chamada HTTP ao Gemini (`generateContent`, chave na query string).
+- `IEscritorDocumento.cs` / `EscritorDocumento.cs`: grava o arquivo.
+- `GoogleDriveService.cs`: upload ao Drive com Bearer token.
+- `appsettings.json`: `Gemini:ApiKey` vazia (valor real vai em `appsettings.Development.json`, não versionado).
 
 ## Configuração (não commitar)
-- Variável de ambiente `GEMINI_API_KEY`. Nunca colocar chave no código.
-- `credentials.json` (OAuth client tipo Desktop, Google Cloud) na pasta de execução.
-- `token_drive/` gerado no 1º login. Ignorado pelo git.
-
-## Regras do prompt de transcrição
-- Só enunciados e alternativas A–E.
-- Sem dados pessoais, sem rasuras, sem respostas marcadas, sem manuscritos.
-- Questão com figura: marcar `**[ESTA QUESTÃO CONTÉM UMA IMAGEM]**`.
-- Sem numeração no início dos enunciados.
-- Saída só Markdown limpo.
+- `appsettings.Development.json` com `Gemini:ApiKey` e, se usar Drive, `GoogleDrive:AccessToken`.
+- Chave e token nunca no código nem no `appsettings.json` versionado.
 
 ## Convenções
-- Código e comentários em português. Nomes de domínio em português (`EscanearPasta`, `DocumentoEntrada`).
-- `Nullable` e `ImplicitUsings` ativos.
-- Erro por arquivo não derruba o lote: `Program.cs` loga e segue.
+- Código e comentários em português. Nomes de domínio em português.
+- `Nullable` e `ImplicitUsings` ativos. Namespace `Transcritor`.
+- Interfaces `I*` para serviços; implementação concreta por trás.
+
+## Problemas conhecidos
+- Pasta de entrada e saída hardcoded em `Program.cs`. Deveria vir de argumento ou config.
+- Sem suporte a `.txt` / `.docx`.
+- `GoogleDrive:AccessToken` é token de curta duração. Sem refresh, o envio para de funcionar após expirar. OAuth é o caminho certo.
+- Chave Gemini vai na query string. Melhor header `x-goog-api-key`.
+- Sem OCR local nem cache por hash. Cada execução gasta API de novo.
 
 ## Comandos
-- Build: `dotnet build`
-- Rodar: `dotnet run -- "C:\caminho\pasta"`
+- Build: `dotnet build Transcritor/Transcritor.csproj`
+- Rodar: `dotnet run --project Transcritor/Transcritor.csproj`
 
-## Estado / TODO
-- Desenvolvimento em passos pequenos. Cada passo validado e commitado antes do próximo. Não avançar sem aprovação do usuário.
-- Fluxo acima é a meta do MVP. Ainda não testado com arquivos reais nem com o Drive.
-- Futuro: executável (publish), depois web. Discutir custo de API antes de escalar (cache por hash, limite por usuário, OCR local para documentos digitais).
+## Estado
+- Desenvolvimento em passos pequenos. Um passo validado e commitado por vez. Não avançar sem aprovação do usuário.
+- Não há testes automatizados.

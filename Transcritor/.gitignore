@@ -2,3 +2,4 @@ bin/
 obj/
 credentials.json
 token_drive/
+appsettings.Development.json
