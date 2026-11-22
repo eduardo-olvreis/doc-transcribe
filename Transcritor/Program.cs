@@ -49,28 +49,62 @@ StringBuilder sb = new StringBuilder();
 
 int numeroQuestaoGlobal = 1;
 
+var arquivosComFalha = new List<(string Nome, string Motivo)>();
+
 foreach (var documento in documentos)
 {
     Console.WriteLine($"Processando documento: {documento.Nome}");
-    string resultadoIA = await transcritor.EnviarParaIAAsync(documento);
 
-    StringBuilder sbQuestaoFormatada = new StringBuilder();
-    var questoesConsolidadas = parser.Extrair(resultadoIA, documento.Nome);
-
-    foreach (var questao in questoesConsolidadas)
+    try
     {
-        sbQuestaoFormatada.AppendLine($"{numeroQuestaoGlobal} - {questao}");
-        sbQuestaoFormatada.AppendLine();
-        sbQuestaoFormatada.AppendLine();
-        numeroQuestaoGlobal++;
+        string resultadoIA = await transcritor.EnviarParaIAAsync(documento);
+
+        StringBuilder sbQuestaoFormatada = new StringBuilder();
+        var questoesConsolidadas = parser.Extrair(resultadoIA, documento.Nome);
+
+        foreach (var questao in questoesConsolidadas)
+        {
+            sbQuestaoFormatada.AppendLine($"{numeroQuestaoGlobal} - {questao}");
+            sbQuestaoFormatada.AppendLine();
+            sbQuestaoFormatada.AppendLine();
+            numeroQuestaoGlobal++;
+        }
+
+        sb.AppendLine(sbQuestaoFormatada.ToString());
+    }
+    catch (Exception ex)
+    {
+        // Um arquivo com erro não derruba os demais; segue e lista no final.
+        Console.WriteLine($"[ERRO] Falha em '{documento.Nome}': {ex.Message}");
+        arquivosComFalha.Add((documento.Nome, ex.Message));
     }
 
-    sb.AppendLine(sbQuestaoFormatada.ToString());
     await Task.Delay(2000);
 }
 
-string conteudoMarkdown = sb.ToString();
-await escritor.SalvarAsync(caminhoSaida, conteudoMarkdown);
+if (sb.Length > 0)
+{
+    await escritor.SalvarAsync(caminhoSaida, sb.ToString());
+}
+else
+{
+    Console.WriteLine("[ERRO] Nenhuma questão transcrita. Arquivo de saída não foi gerado.");
+}
+
+if (arquivosComFalha.Count > 0)
+{
+    Console.WriteLine($"[AVISO] {arquivosComFalha.Count} arquivo(s) falharam e NÃO estão no resultado:");
+    foreach (var (nomeFalha, motivo) in arquivosComFalha)
+    {
+        Console.WriteLine($" - {nomeFalha}: {motivo}");
+    }
+}
+
+if (sb.Length == 0 || arquivosComFalha.Count > 0)
+{
+    Console.WriteLine("Envio para o Google Drive cancelado: resultado ausente ou incompleto. Rode de novo após corrigir.");
+    return;
+}
 
 
 string googleToken = config["GoogleDrive:AccessToken"];

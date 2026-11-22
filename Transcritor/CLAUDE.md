@@ -52,10 +52,11 @@ Feitas:
 
 Próximas, na ordem sugerida:
 - 4b. ✅ Testado com Gemini real e Drive. Marcar questão cortada e arquivo de origem. Parser devolve questão + nome do arquivo. Marcador de imagem vira `[IMAGEM — arquivo.jpg]`. Questão cortada: pedir no prompt do Gemini `**[QUESTÃO CORTADA]**` (início ou fim da página) e trocar por `[QUESTÃO CORTADA — arquivo.jpg]`; somar heurística (questão que começa direto em alternativa, como a nº 1 do teste). Mudar o prompt exige retestar com imagens reais.
-- 3. ⏳ Resiliência: `try/catch` por arquivo em `Program.cs`; salvar `.md` parcial e listar arquivos que falharam.
+- 3. ✅ Resiliência: `try/catch` por arquivo em `Program.cs`; salva `.md` parcial, lista arquivos que falharam no console e pula o envio ao Drive se houve falha. Testado manualmente.
 - 7. ⏳ Ler `appsettings*.json` de `AppContext.BaseDirectory` (hoje usa `Directory.GetCurrentDirectory()`; só roda de dentro da pasta do projeto, senão `FileNotFoundException`).
 - 5. ⏳ Drive com OAuth e refresh do token (hoje token do OAuth Playground dura ~1h; erro 401 = expirou).
 - 6. ⏳ Cache por hash do arquivo (não gastar API de novo).
+- 8. ⏳ Juntar questões cortadas entre arquivos (arquivos sem ordem, podem estar distantes; junção por conteúdo, não por vizinhança). Plano: (a) prompt com dois marcadores, `[CORTADA NO FIM]` e `[CORTADA NO INÍCIO]`; (b) parser separa os pedaços órfãos (inclui os que começam em alternativa); (c) uma chamada extra ao Gemini só com texto, com os órfãos numerados, devolve JSON com os pares que se completam; (d) questão unida entra na posição do pedaço do início; (e) órfão sem par mantém `[QUESTÃO CORTADA — arquivo]`; avisar quando o pareamento for incerto. Risco: pareamento errado com muitos órfãos parecidos. Exige testes unitários do parser e teste real com Gemini.
 
 Melhorias menores / dívida técnica (sem ordem):
 - Console com acentos quebrados (`�`): definir `Console.OutputEncoding = Encoding.UTF8`.
