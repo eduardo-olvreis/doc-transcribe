@@ -4,13 +4,13 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 
 ## Fluxo atual (`Program.cs`)
 1. Lê `Gemini:ApiKey` de `appsettings.json` + `appsettings.Development.json`. Sem chave, encerra.
-2. Pasta fixa no código: `E:\Documentos\TranscreverProvas`.
-3. `ArquivoScanner.EscanearPasta` lista `.pdf .png .jpg .jpeg`.
+2. Pasta de entrada: `args[0]` ou `Transcricao:PastaEntrada`. Saída: `Transcricao:PastaSaida` (vazio = pasta de entrada), arquivo `Transcricao:NomeArquivoSaida`. Pasta inexistente encerra com erro.
+3. `ArquivoScanner.EscanearPasta` lista `.pdf .png .jpg .jpeg` em ordem natural de nome.
 4. Para cada arquivo: `GeminiService.EnviarParaIAAsync` (modelo `gemini-3.1-flash-lite`, temperature 0.1, até 5 tentativas em 429/503 com espera crescente).
 5. Resposta dividida em blocos por linha em branco. Bloco que começa com `a)`–`e)` (ou `A.`–`E.`) é agrupado à questão anterior.
 6. Numeração global sequencial (`1 - `, `2 - `...) entre todos os arquivos.
 7. Espera 2s entre arquivos.
-8. Grava `resultado_consolidado.md` em `E:\Documentos\TranscreverProvas`. Regex adiciona duas espaços antes de alternativas.
+8. Grava o MD consolidado na pasta de saída. Regex adiciona duas espaços antes de alternativas.
 9. Se `GoogleDrive:AccessToken` existir, `GoogleDriveService` envia o MD por multipart ao Drive com `mimeType = application/vnd.google-apps.document`. Sem token, pula esta etapa.
 
 ## Arquivos
@@ -32,7 +32,6 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 - Interfaces `I*` para serviços; implementação concreta por trás.
 
 ## Problemas conhecidos
-- Pasta de entrada e saída hardcoded em `Program.cs`. Deveria vir de argumento ou config.
 - `GoogleDrive:AccessToken` é token de curta duração. Sem refresh, o envio para de funcionar após expirar. OAuth é o caminho certo.
 - Chave Gemini vai na query string. Melhor header `x-goog-api-key`.
 - Sem OCR local nem cache por hash. Cada execução gasta API de novo.

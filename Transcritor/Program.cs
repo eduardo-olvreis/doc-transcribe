@@ -15,8 +15,24 @@ if (string.IsNullOrEmpty(apiKey))
     return;
 }
 
-string caminho = @"E:\Documentos\TranscreverProvas";
-string caminhoSaida = Path.Combine(caminho, "resultado_consolidado.md");
+// Prioridade da pasta de entrada: argumento da linha de comando > appsettings.
+string? caminho = args.Length > 0 ? args[0] : config["Transcricao:PastaEntrada"];
+if (string.IsNullOrWhiteSpace(caminho))
+{
+    Console.WriteLine("Erro: informe a pasta de entrada por argumento ou em 'Transcricao:PastaEntrada'.");
+    return;
+}
+if (!Directory.Exists(caminho))
+{
+    Console.WriteLine($"Erro: a pasta de entrada não existe: {caminho}");
+    return;
+}
+
+string pastaSaida = config["Transcricao:PastaSaida"] is { Length: > 0 } saida ? saida : caminho;
+Directory.CreateDirectory(pastaSaida);
+string nomeArquivoSaida = config["Transcricao:NomeArquivoSaida"] is { Length: > 0 } nome ? nome : "resultado_consolidado.md";
+string caminhoSaida = Path.Combine(pastaSaida, nomeArquivoSaida);
+string nomeDocumentoDrive = config["Transcricao:NomeDocumentoDrive"] is { Length: > 0 } nomeDoc ? nomeDoc : "Prova Consolidada";
 using var httpClient = new HttpClient();
 httpClient.Timeout = TimeSpan.FromMinutes(5);
 
@@ -87,7 +103,7 @@ string googleToken = config["GoogleDrive:AccessToken"];
 if (!string.IsNullOrEmpty(googleToken))
 {
     var driveService = new GoogleDriveService(googleToken, httpClient);
-    await driveService.EnviarParaGoogleDocsAsync(caminhoSaida, "Prova Consolidada - Semiotecia");
+    await driveService.EnviarParaGoogleDocsAsync(caminhoSaida, nomeDocumentoDrive);
 }
 else
 {
