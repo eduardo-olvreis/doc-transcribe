@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -8,13 +9,20 @@ namespace Transcritor
     internal class GeminiService : ITranscritorIA
     {
 
+        // Temperaturas por tentativa: a primeira é a padrão; as seguintes só entram em RECITATION.
+        private static readonly double[] temperaturas = [0.1, 0.5, 0.8];
+
+        private sealed class RecitacaoException(string mensagem) : InvalidOperationException(mensagem);
+
         private readonly string apiKey;
         private readonly HttpClient client;
+        private readonly int maxOutputTokens;
 
-        public GeminiService(string apiKey, HttpClient client)
+        public GeminiService(string apiKey, HttpClient client, int maxOutputTokens = 65536)
         {
             this.apiKey = apiKey;
             this.client = client;
+            this.maxOutputTokens = maxOutputTokens;
         }
 
         public async Task<string> EnviarParaIAAsync(DocumentoEntrada documento)
@@ -52,6 +60,24 @@ namespace Transcritor
                             5. FORMATO DE SAÍDA: Retorne apenas o texto transcrito em Markdown limpo, sem introduções, saudações ou explicações antes ou depois.
                             """;
 
+            // RECITATION (bloqueio por cópia literal) não é determinístico: retenta variando a temperatura.
+            for (int i = 0; i < temperaturas.Length; i++)
+            {
+                try
+                {
+                    return await GerarAsync(url, prompt, mimeType, base64String, temperaturas[i], documento.Nome);
+                }
+                catch (RecitacaoException) when (i < temperaturas.Length - 1)
+                {
+                    Console.WriteLine($"[AVISO] '{documento.Nome}' bloqueado por RECITATION. Nova tentativa {i + 2}/{temperaturas.Length} com temperature={temperaturas[i + 1]}...");
+                }
+            }
+
+            throw new UnreachableException();
+        }
+
+        private async Task<string> GerarAsync(string url, string prompt, string mimeType, string base64String, double temperatura, string nomeDocumento)
+        {
             var payload = new
             {
                 contents = new[]
@@ -74,8 +100,8 @@ namespace Transcritor
                 },
                 generationConfig = new
                 {
-                    temperature = 0.1,
-                    maxOutputTokens = 8192
+                    temperature = temperatura,
+                    maxOutputTokens = this.maxOutputTokens
                 }
             };
 
@@ -118,7 +144,7 @@ namespace Transcritor
                 throw new HttpRequestException("Falha na API: nenhuma resposta válida após as tentativas.");
             }
 
-            return ExtrairTexto(responseBody, documento.Nome);
+            return ExtrairTexto(responseBody, nomeDocumento);
         }
 
         private static string ExtrairTexto(string responseBody, string nomeDocumento)
@@ -152,6 +178,11 @@ namespace Transcritor
 
             if (texto.Length == 0)
             {
+                if (finishReason == "RECITATION")
+                {
+                    throw new RecitacaoException($"A IA retornou texto vazio para '{nomeDocumento}' (finishReason: {finishReason}).");
+                }
+
                 throw new InvalidOperationException($"A IA retornou texto vazio para '{nomeDocumento}' (finishReason: {finishReason}).");
             }
 

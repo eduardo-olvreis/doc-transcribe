@@ -37,9 +37,22 @@ using var httpClient = new HttpClient();
 httpClient.Timeout = TimeSpan.FromMinutes(5);
 
 IArquivoScanner scanner = new ArquivoScanner();
-IEnumerable<DocumentoEntrada> documentos = scanner.EscanearPasta(caminho);
+var documentos = scanner.EscanearPasta(caminho).ToList();
 
-ITranscritorIA transcritor = new GeminiService(apiKey, httpClient);
+// Renomear é padrão (true); só 'false' explícito desliga.
+bool renomearArquivos = !bool.TryParse(config["Transcricao:RenomearArquivos"], out bool renomear) || renomear;
+if (renomearArquivos && documentos.Count > 0)
+{
+    int renomeados = new RenomeadorArquivos().Renomear(caminho, documentos);
+    if (renomeados > 0)
+    {
+        Console.WriteLine($"{renomeados} arquivo(s) renomeado(s) em sequência. Nomes originais em '{RenomeadorArquivos.NomeMapa}'.");
+        documentos = scanner.EscanearPasta(caminho).ToList();
+    }
+}
+
+int maxOutputTokens = int.TryParse(config["Gemini:MaxOutputTokens"], out int maxTokens) && maxTokens > 0 ? maxTokens : 65536;
+ITranscritorIA transcritor = new GeminiService(apiKey, httpClient, maxOutputTokens);
 
 IEscritorDocumento escritor = new EscritorDocumento();
 
@@ -100,14 +113,26 @@ if (arquivosComFalha.Count > 0)
     }
 }
 
-if (sb.Length == 0 || arquivosComFalha.Count > 0)
+// Enviar é padrão (true); só 'false' explícito desliga.
+bool enviarParaDrive = !bool.TryParse(config["GoogleDrive:Enviar"], out bool enviar) || enviar;
+if (!enviarParaDrive)
 {
-    Console.WriteLine("Envio para o Google Drive cancelado: resultado ausente ou incompleto. Rode de novo após corrigir.");
+    Console.WriteLine("Envio para o Google Drive desativado ('GoogleDrive:Enviar' = false).");
     return;
 }
 
+if (sb.Length == 0)
+{
+    Console.WriteLine("Envio para o Google Drive cancelado: nenhum conteúdo transcrito.");
+    return;
+}
 
-string googleToken = config["GoogleDrive:AccessToken"];
+if (arquivosComFalha.Count > 0)
+{
+    Console.WriteLine($"[AVISO] Enviando ao Drive mesmo com {arquivosComFalha.Count} arquivo(s) faltando (listados acima).");
+}
+
+string? googleToken = config["GoogleDrive:AccessToken"];
 
 if (!string.IsNullOrEmpty(googleToken))
 {
