@@ -5,7 +5,7 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 ## Fluxo atual (`Program.cs`)
 1. Lê `Gemini:ApiKey` de `appsettings.json` + `appsettings.Development.json`. Sem chave, encerra.
 2. Pasta fixa no código: `E:\Documentos\TranscreverProvas`.
-3. `ArquivoScanner.EscanearPasta` lista `.pdf .png .jpg .jpeg`. Não lê `.txt` nem `.docx`.
+3. `ArquivoScanner.EscanearPasta` lista `.pdf .png .jpg .jpeg`.
 4. Para cada arquivo: `GeminiService.EnviarParaIAAsync` (modelo `gemini-3.1-flash-lite`, temperature 0.1, até 5 tentativas em 429/503 com espera crescente).
 5. Resposta dividida em blocos por linha em branco. Bloco que começa com `a)`–`e)` (ou `A.`–`E.`) é agrupado à questão anterior.
 6. Numeração global sequencial (`1 - `, `2 - `...) entre todos os arquivos.
@@ -33,7 +33,6 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 
 ## Problemas conhecidos
 - Pasta de entrada e saída hardcoded em `Program.cs`. Deveria vir de argumento ou config.
-- Sem suporte a `.txt` / `.docx`.
 - `GoogleDrive:AccessToken` é token de curta duração. Sem refresh, o envio para de funcionar após expirar. OAuth é o caminho certo.
 - Chave Gemini vai na query string. Melhor header `x-goog-api-key`.
 - Sem OCR local nem cache por hash. Cada execução gasta API de novo.
