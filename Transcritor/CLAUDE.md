@@ -17,7 +17,7 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 - `Program.cs`: orquestração inteira (config, loop, numeração, escrita, envio).
 - `ArquivoScanner.cs` / `IArquivoScanner.cs`: descoberta de arquivos.
 - `DocumentoEntrada.cs`: DTO (`Caminho`, `Nome`, `Extensao`, `TamanhoMB`).
-- `ITranscritorIA.cs` / `GeminiService.cs`: chamada HTTP ao Gemini (`generateContent`, chave na query string).
+- `ITranscritorIA.cs` / `GeminiService.cs`: chamada HTTP ao Gemini (`generateContent`, chave no header `x-goog-api-key`; resposta validada: erro em bloqueio/texto vazio, aviso se `finishReason` != STOP).
 - `IEscritorDocumento.cs` / `EscritorDocumento.cs`: grava o arquivo.
 - `GoogleDriveService.cs`: upload ao Drive com Bearer token.
 - `appsettings.json`: `Gemini:ApiKey` vazia (valor real vai em `appsettings.Development.json`, não versionado).
@@ -33,7 +33,6 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 
 ## Problemas conhecidos
 - `GoogleDrive:AccessToken` é token de curta duração. Sem refresh, o envio para de funcionar após expirar. OAuth é o caminho certo.
-- Chave Gemini vai na query string. Melhor header `x-goog-api-key`.
 - Sem OCR local nem cache por hash. Cada execução gasta API de novo.
 
 ## Comandos
