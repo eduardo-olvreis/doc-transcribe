@@ -1,0 +1,4 @@
+bin/
+obj/
+credentials.json
+token_drive/
