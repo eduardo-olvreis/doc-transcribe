@@ -7,14 +7,15 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 2. Pasta de entrada: `args[0]` ou `Transcricao:PastaEntrada`. Saída: `Transcricao:PastaSaida` (vazio = pasta de entrada), arquivo `Transcricao:NomeArquivoSaida`. Pasta inexistente encerra com erro.
 3. `ArquivoScanner.EscanearPasta` lista `.pdf .png .jpg .jpeg` em ordem natural de nome.
 4. Para cada arquivo: `GeminiService.EnviarParaIAAsync` (modelo `gemini-3.1-flash-lite`, temperature 0.1, até 5 tentativas em 429/503 com espera crescente).
-5. Resposta dividida em blocos por linha em branco. Bloco que começa com `a)`–`e)` (ou `A.`–`E.`) é agrupado à questão anterior.
+5. `ParserQuestoes.Extrair` divide a resposta em questões: blocos por linha em branco; alternativas (`a)`, `A)`, `(a)`, `a.`, até `e`), itens de associação (`1)`, `1.`, `( )`), marcador de imagem e bloco "Resposta correta:" após itens são agrupados à questão anterior. Alternativas coladas na mesma linha são separadas. Cada linha da questão vira quebra rígida Markdown (dois espaços + `\n`).
 6. Numeração global sequencial (`1 - `, `2 - `...) entre todos os arquivos.
 7. Espera 2s entre arquivos.
-8. Grava o MD consolidado na pasta de saída. Regex adiciona duas espaços antes de alternativas.
+8. Grava o MD consolidado na pasta de saída.
 9. Se `GoogleDrive:AccessToken` existir, `GoogleDriveService` envia o MD por multipart ao Drive com `mimeType = application/vnd.google-apps.document`. Sem token, pula esta etapa.
 
 ## Arquivos
-- `Program.cs`: orquestração inteira (config, loop, numeração, escrita, envio).
+- `Program.cs`: orquestração (config, loop, numeração global, escrita, envio).
+- `IParserQuestoes.cs` / `ParserQuestoes.cs`: agrupa blocos da IA em questões e formata em Markdown.
 - `ArquivoScanner.cs` / `IArquivoScanner.cs`: descoberta de arquivos.
 - `DocumentoEntrada.cs`: DTO (`Caminho`, `Nome`, `Extensao`, `TamanhoMB`).
 - `ITranscritorIA.cs` / `GeminiService.cs`: chamada HTTP ao Gemini (`generateContent`, chave no header `x-goog-api-key`; resposta validada: erro em bloqueio/texto vazio, aviso se `finishReason` != STOP).
@@ -42,3 +43,25 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 ## Estado
 - Desenvolvimento em passos pequenos. Um passo validado e commitado por vez. Não avançar sem aprovação do usuário.
 - Não há testes automatizados.
+
+## Roadmap de melhorias (uma por vez, commit por melhoria)
+Feitas:
+1. ✅ Config de pastas, nome do arquivo/doc e ordenação natural.
+2. ✅ `GeminiService` robusto (header, `finishReason`, parse seguro). Testado com chave real.
+4. ✅ Parser de questões (`ParserQuestoes`): `a.`, `A)`, `E`, associação de colunas. Testado com Gemini real (3 imagens → 8 questões certas).
+
+Próximas, na ordem sugerida:
+- 4b. ⏳ Marcar questão cortada e arquivo de origem. Parser devolve questão + nome do arquivo. Marcador de imagem vira `[IMAGEM — arquivo.jpg]`. Questão cortada: pedir no prompt do Gemini `**[QUESTÃO CORTADA]**` (início ou fim da página) e trocar por `[QUESTÃO CORTADA — arquivo.jpg]`; somar heurística (questão que começa direto em alternativa, como a nº 1 do teste). Mudar o prompt exige retestar com imagens reais.
+- 3. ⏳ Resiliência: `try/catch` por arquivo em `Program.cs`; salvar `.md` parcial e listar arquivos que falharam.
+- 7. ⏳ Ler `appsettings*.json` de `AppContext.BaseDirectory` (hoje usa `Directory.GetCurrentDirectory()`; só roda de dentro da pasta do projeto, senão `FileNotFoundException`).
+- 5. ⏳ Drive com OAuth e refresh do token (hoje token do OAuth Playground dura ~1h; erro 401 = expirou).
+- 6. ⏳ Cache por hash do arquivo (não gastar API de novo).
+
+Melhorias menores / dívida técnica (sem ordem):
+- Console com acentos quebrados (`�`): definir `Console.OutputEncoding = Encoding.UTF8`.
+- Warnings de nullable: `DocumentoEntrada` (propriedades não inicializadas), `Program.cs` (`googleToken` deve ser `string?`).
+- `Task.Delay(2000)` e `maxOutputTokens = 8192` fixos no código; mover para config.
+- Arquivos acima de ~20MB não cabem em `inline_data` do Gemini; avisar ou usar a File API.
+- `GoogleDriveService`: não descarta a resposta (`Dispose`) e não renova token (ver item 5).
+- Não há testes automatizados. Avaliar projeto de testes para `ParserQuestoes` (cobre os casos do teste real).
+- Prompt do Gemini diz "sem numeração"; se a IA numerar mesmo assim, o parser trata `1.`/`1)` como item da questão anterior, não como questão nova.
