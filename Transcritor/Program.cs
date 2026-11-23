@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using System.Globalization;
 using System.Text;
 using Transcritor;
 
@@ -58,9 +59,7 @@ IEscritorDocumento escritor = new EscritorDocumento();
 
 IParserQuestoes parser = new ParserQuestoes();
 
-StringBuilder sb = new StringBuilder();
-
-int numeroQuestaoGlobal = 1;
+var questoesExtraidas = new List<QuestaoExtraida>();
 
 var arquivosComFalha = new List<(string Nome, string Motivo)>();
 
@@ -72,18 +71,10 @@ foreach (var documento in documentos)
     {
         string resultadoIA = await transcritor.EnviarParaIAAsync(documento);
 
-        StringBuilder sbQuestaoFormatada = new StringBuilder();
-        var questoesConsolidadas = parser.Extrair(resultadoIA, documento.Nome);
-
-        foreach (var questao in questoesConsolidadas)
+        foreach (var questao in parser.Extrair(resultadoIA, documento.Nome))
         {
-            sbQuestaoFormatada.AppendLine($"{numeroQuestaoGlobal} - {questao}");
-            sbQuestaoFormatada.AppendLine();
-            sbQuestaoFormatada.AppendLine();
-            numeroQuestaoGlobal++;
+            questoesExtraidas.Add(new QuestaoExtraida(questao, documento.Nome));
         }
-
-        sb.AppendLine(sbQuestaoFormatada.ToString());
     }
     catch (Exception ex)
     {
@@ -93,6 +84,43 @@ foreach (var documento in documentos)
     }
 
     await Task.Delay(2000);
+}
+
+// Refinamento: remove dissertativas e repetidas antes da numeração global. Ambos padrão true.
+bool removerDissertativas = !bool.TryParse(config["Refinamento:RemoverDissertativas"], out bool remDiss) || remDiss;
+bool removerRepetidas = !bool.TryParse(config["Refinamento:RemoverRepetidas"], out bool remRep) || remRep;
+double limiteSimilaridade = double.TryParse(config["Refinamento:LimiteSimilaridade"], NumberStyles.Float, CultureInfo.InvariantCulture, out double lim) && lim is > 0 and <= 1 ? lim : 0.9;
+
+IRefinadorQuestoes refinador = new RefinadorQuestoes();
+var refinado = refinador.Refinar(questoesExtraidas, new OpcoesRefinamento(removerDissertativas, removerRepetidas, limiteSimilaridade));
+
+var sb = new StringBuilder();
+for (int i = 0; i < refinado.Mantidas.Count; i++)
+{
+    sb.AppendLine($"{i + 1} - {refinado.Mantidas[i].Texto}");
+    sb.AppendLine();
+    sb.AppendLine();
+}
+
+if (refinado.Removidas.Count > 0)
+{
+    string caminhoRelatorio = Path.Combine(pastaSaida, "relatorio_remocoes.md");
+    var rel = new StringBuilder();
+    rel.AppendLine($"# Questões removidas ({refinado.Removidas.Count})");
+    rel.AppendLine();
+    foreach (var r in refinado.Removidas)
+    {
+        string detalhe = r.Motivo == "repetida"
+            ? $"repetida da nº {r.IndiceMantida + 1} (similaridade {r.Similaridade:P0})"
+            : "dissertativa";
+        rel.AppendLine($"## {detalhe} — origem: {r.Questao.Arquivo}");
+        rel.AppendLine();
+        rel.AppendLine(r.Questao.Texto);
+        rel.AppendLine();
+    }
+    await escritor.SalvarAsync(caminhoRelatorio, rel.ToString());
+    int nDiss = refinado.Removidas.Count(r => r.Motivo == "dissertativa");
+    Console.WriteLine($"Refinamento: {nDiss} dissertativa(s) e {refinado.Removidas.Count - nDiss} repetida(s) removida(s). Detalhes em '{caminhoRelatorio}'.");
 }
 
 if (sb.Length > 0)

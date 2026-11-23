@@ -18,6 +18,8 @@ App console .NET 10 (`Transcritor/Transcritor.csproj`, solução `Transcritor.sl
 - `IParserQuestoes.cs` / `ParserQuestoes.cs`: agrupa blocos da IA em questões e formata em Markdown.
 - `ArquivoScanner.cs` / `IArquivoScanner.cs`: descoberta de arquivos.
 - `RenomeadorArquivos.cs` / `IRenomeadorArquivos.cs`: renomeia entrada para 001, 002... e grava `mapa_nomes.txt`.
+- `PadroesQuestao.cs`: regex de alternativa (`a)`, `A)`, `(a)`, `a.`, `A.` em sequência) e item (`1)`, `1-`, `I.`, `II -`, `( )`), compartilhada por parser e refinador.
+- `IRefinadorQuestoes.cs` / `RefinadorQuestoes.cs`: remove dissertativas (só as que exigem resposta escrita: sem alternativas, itens nem enunciado de escolha como "assinale"/"V ou F"; cortadas ficam) e repetidas (Jaccard de bigramas de palavras do texto normalizado, mantém a primeira). Roda antes da numeração; grava `relatorio_remocoes.md`.
 - `DocumentoEntrada.cs`: DTO (`Caminho`, `Nome`, `Extensao`, `TamanhoMB`).
 - `ITranscritorIA.cs` / `GeminiService.cs`: chamada HTTP ao Gemini (`generateContent`, chave no header `x-goog-api-key`; resposta validada: erro em bloqueio/texto vazio, aviso se `finishReason` != STOP).
 - `IEscritorDocumento.cs` / `EscritorDocumento.cs`: grava o arquivo.
@@ -58,6 +60,7 @@ Próximas, na ordem sugerida:
 - 5. ⏳ Drive com OAuth e refresh do token (hoje token do OAuth Playground dura ~1h; erro 401 = expirou).
 - 6. ⏳ Cache por hash do arquivo (não gastar API de novo).
 - 9. ✅ Renomear arquivos da pasta de entrada para `001`, `002`... antes de transcrever (`RenomeadorArquivos`; mapa em `mapa_nomes.txt`; flag `Transcricao:RenomearArquivos`, padrão true; idempotente). Falta teste manual.
+- 10. ✅ Refinamento (`RefinadorQuestoes`): flags `Refinamento:RemoverDissertativas`, `Refinamento:RemoverRepetidas` (padrão true) e `Refinamento:LimiteSimilaridade` (0.9). Falta teste manual. Só pega repetida por texto; reescrita com palavras diferentes exigiria IA.
 - Flag `GoogleDrive:Enviar` (padrão true): false pula o envio ao Drive.
 - `GeminiService` retenta `finishReason=RECITATION` até 3 vezes (temperature 0.1, 0.5, 0.8); falhando, o arquivo entra na lista de falhas. Falta teste manual.
 - 8. ⏳ Juntar questões cortadas entre arquivos (arquivos sem ordem, podem estar distantes; junção por conteúdo, não por vizinhança). Plano: (a) prompt com dois marcadores, `[CORTADA NO FIM]` e `[CORTADA NO INÍCIO]`; (b) parser separa os pedaços órfãos (inclui os que começam em alternativa); (c) uma chamada extra ao Gemini só com texto, com os órfãos numerados, devolve JSON com os pares que se completam; (d) questão unida entra na posição do pedaço do início; (e) órfão sem par mantém `[QUESTÃO CORTADA — arquivo]`; avisar quando o pareamento for incerto. Risco: pareamento errado com muitos órfãos parecidos. Exige testes unitários do parser e teste real com Gemini.

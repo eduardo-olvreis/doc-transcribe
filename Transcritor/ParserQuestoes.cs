@@ -4,21 +4,9 @@ namespace Transcritor
 {
     internal partial class ParserQuestoes : IParserQuestoes
     {
-        // Alternativa no início do bloco/linha: "a)", "A)", "(a)", "a.", "a-".
-        // Com "." ou "-" só minúscula, para não confundir com "E. coli".
-        [GeneratedRegex(@"^(\([a-eA-E]\)|[a-eA-E]\)|[a-e][\.\-])\s*\S")]
-        private static partial Regex InicioAlternativa();
-
-        // Item de enumeração/associação: "1)", "1.", "( )" ou marcador de imagem.
-        [GeneratedRegex(@"^(\d{1,2}[\)\.]\s|\(\s*\)|\[IMAGEM —)", RegexOptions.IgnoreCase)]
-        private static partial Regex InicioItem();
-
         // Bloco que complementa uma questão de associar colunas ("Resposta correta:", "Assinale a alternativa...").
-        [GeneratedRegex(@"^(resposta|alternativa|assinale)\b", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"^(resposta|alternativa|assinale|quais)\b", RegexOptions.IgnoreCase)]
         private static partial Regex InicioRespostaAssociacao();
-
-        [GeneratedRegex(@"^(\d{1,2}[\)\.]\s|\(\s*\))", RegexOptions.Multiline)]
-        private static partial Regex LinhaDeItem();
 
         [GeneratedRegex(@"\n\s*\n")]
         private static partial Regex LinhaEmBranco();
@@ -68,7 +56,7 @@ namespace Transcritor
                 }
 
                 // Heurística: questão que começa direto em alternativa veio cortada do arquivo anterior.
-                blocosAtuais = InicioAlternativa().IsMatch(bloco) && !bloco.Contains("[QUESTÃO CORTADA")
+                blocosAtuais = PadroesQuestao.ComecaComAlternativa(bloco, string.Empty) && !bloco.Contains("[QUESTÃO CORTADA")
                     ? [marcadorCortada, bloco]
                     : [bloco];
             }
@@ -83,12 +71,13 @@ namespace Transcritor
 
         private static bool ContinuaQuestaoAtual(string bloco, List<string> blocosAtuais)
         {
-            if (InicioAlternativa().IsMatch(bloco) || InicioItem().IsMatch(bloco))
+            string textoAtual = string.Join("\n", blocosAtuais);
+            if (PadroesQuestao.ComecaComAlternativa(bloco, textoAtual) || PadroesQuestao.ComecaComItem(bloco))
             {
                 return true;
             }
 
-            bool atualTemItens = LinhaDeItem().IsMatch(string.Join("\n", blocosAtuais));
+            bool atualTemItens = PadroesQuestao.TemItens(textoAtual);
             return atualTemItens && InicioRespostaAssociacao().IsMatch(bloco);
         }
 
